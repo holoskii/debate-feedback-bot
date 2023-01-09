@@ -2,6 +2,9 @@
 # pylint: disable=C0116,W0613
 # This program is dedicated to the public domain under the CC0 license.
 
+# nestedconversationbot.py
+# arbitrarycallbackdatabot.py
+
 """This example showcases how PTBs "arbitrary callback data" feature can be used.
 
 For detailed info on arbitrary callback data, see the wiki page at
@@ -26,18 +29,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-rounds: List[str] = []
-judges: List[str] = ['Judge 1', 'Judge 2']
-confirmation: List[str] = ['Yes, confirm', 'No, cancel']
+rounds: List[str] = ["Round 1", "Round 2"]
+judges: List[str] = ["Judge 1", "Judge 2"]
+confirmation: List[str] = ["Yes, confirm", "No, cancel"]
 
 EVENT, ROUND, JUDGE, RATE, FINAL = range(5)
 
 
 def start_command_handler(update: Update, context: CallbackContext) -> None:
     if len(rounds) > 1:
-        update.message.reply_text('Choose round:', reply_markup=build_round_list({}))
+        update.message.reply_text("Choose round:", reply_markup=build_round_list({}))
     else:
-        update.message.reply_text('Choose judge:', reply_markup=build_judge_list({}))
+        update.message.reply_text("Choose judge:", reply_markup=build_judge_list({}))
 
 
 def help_command_handler(update: Update, context: CallbackContext) -> None:
@@ -49,7 +52,7 @@ def help_command_handler(update: Update, context: CallbackContext) -> None:
 def clear_command_handler(update: Update, context: CallbackContext) -> None:
     context.bot.callback_data_cache.clear_callback_data()  # type: ignore[attr-defined]
     context.bot.callback_data_cache.clear_callback_queries()  # type: ignore[attr-defined]
-    update.effective_message.reply_text('All clear!')
+    update.effective_message.reply_text("All clear!")
 
 
 def build_round_list(current_list: Dict[int, str]) -> InlineKeyboardMarkup:
@@ -76,6 +79,19 @@ def build_confirmation_list(current_list: Dict[int, str]) -> InlineKeyboardMarku
     )
 
 
+def dict_to_str(current_list: Dict[int, str]) -> str:
+    result: str = ""
+    if EVENT in current_list:
+        result += current_list.get(EVENT) + ", "
+    if ROUND in current_list:
+        result += current_list.get(ROUND) + ", "
+    if JUDGE in current_list:
+        result += current_list.get(JUDGE) + ", "
+    if RATE in current_list:
+        result += "Rate: " + str(current_list.get(RATE)) + ", "
+    return result[:-2]
+
+
 def list_button_handler(update: Update, context: CallbackContext) -> None:
     """Parses the CallbackQuery and updates the message text."""
     query = update.callback_query
@@ -90,31 +106,31 @@ def list_button_handler(update: Update, context: CallbackContext) -> None:
     # EVENT, ROUND, JUDGE, RATE
     if phase == EVENT:
         query.edit_message_text(
-            text=f"Selections: {string_dict}. Choose round",
+            text=f"Selections: {dict_to_str(string_dict)}. Choose round:",
             reply_markup=build_round_list(string_dict),
         )
     elif phase == ROUND:
         query.edit_message_text(
-            text=f"Selections: {string_dict}. Choose round",
-            reply_markup=build_round_list(string_dict),
+            text=f"Selections: {dict_to_str(string_dict)}. Choose judge:",
+            reply_markup=build_judge_list(string_dict),
         )
     elif phase == JUDGE:
         query.edit_message_text(
-            text=f"Selections: {string_dict}. Choose Judge",
+            text=f"Selections: {dict_to_str(string_dict)}. Choose rate:",
             reply_markup=build_rate_list(string_dict),
         )
     elif phase == RATE:
         query.edit_message_text(
-            text=f"Selections: {string_dict}. Are you sure?",
+            text=f"Selections: {dict_to_str(string_dict)}. Are you sure?",
             reply_markup=build_confirmation_list(string_dict),
         )
     elif phase == FINAL:
-        if string_dict[FINAL] == 'Yes, confirm':
-            query.edit_message_text(text=f"Selections: {string_dict}. Done and saved")
-        elif string_dict[FINAL] == 'No, cancel':
+        if string_dict[FINAL] == "Yes, confirm":
+            query.edit_message_text(text=f"Selections: {dict_to_str(string_dict)}. Saved")
+        elif string_dict[FINAL] == "No, cancel":
             query.edit_message_text(text=f"Answer discarded")
         else:
-            print('Uncaught branch')
+            print("Uncaught branch")
 
     # we can delete the data stored for the query, because we've replaced the buttons
     context.drop_callback_data(query)
@@ -122,7 +138,7 @@ def list_button_handler(update: Update, context: CallbackContext) -> None:
 
 def invalid_button_handler(update: Update, context: CallbackContext) -> None:
     update.callback_query.answer()
-    update.effective_message.edit_text('This button is already invalid. Use /start')
+    update.effective_message.edit_text("This button is already invalid. Use /start")
 
 
 def unknown_command_handler(update: Update, context: CallbackContext):
@@ -137,10 +153,10 @@ def main() -> None:
     """Run the bot."""
     # We use persistence to demonstrate how buttons can still work after the bot was restarted
     persistence = PicklePersistence(
-        filename='arbitrarycallbackdatabot.pickle', store_callback_data=True
+        filename="arbitrarycallbackdatabot.pickle", store_callback_data=True
     )
     # Create the Updater and pass it your bot's token.
-    updater = Updater("TOKEN", persistence=persistence, arbitrary_callback_data=True)
+    updater = Updater("5619034469:AAFC6eWb7uBEuQAmmXGlZsbnLRyJiH1HK1I", persistence=persistence, arbitrary_callback_data=True)
 
     updater.dispatcher.add_handler(CommandHandler('start', start_command_handler))
     updater.dispatcher.add_handler(CommandHandler('help', help_command_handler))
