@@ -1,178 +1,168 @@
 #!/usr/bin/env python
-# pylint: disable=C0116,W0613
-# This program is dedicated to the public domain under the CC0 license.
-
-# nestedconversationbot.py
-# arbitrarycallbackdatabot.py
-
-"""This example showcases how PTBs "arbitrary callback data" feature can be used.
-
-For detailed info on arbitrary callback data, see the wiki page at
-https://github.com/python-telegram-bot/python-telegram-bot/wiki/Arbitrary-callback_data
+# pylint: disable=unused-argument, wrong-import-position
 """
+Install:
+pip install python-telegram-bot --upgrade
+pip install python-telegram-bot[callback-data]
+"""
+
 import logging
 from typing import List, Tuple, Dict, cast
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import (
-    Updater,
-    CommandHandler,
-    CallbackQueryHandler,
-    CallbackContext,
-    InvalidCallbackData,
-    PicklePersistence, MessageHandler, Filters,
-)
+from telegram.ext import (Application, CallbackQueryHandler, CommandHandler, ContextTypes, InvalidCallbackData, PicklePersistence, MessageHandler, filters)
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
+# Enable logging
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-rounds: List[str] = ["Round 1", "Round 2"]
-judges: List[str] = ["Judge 1", "Judge 2"]
-confirmation: List[str] = ["Yes, confirm", "No, cancel"]
-
-EVENT, ROUND, JUDGE, RATE, FINAL = range(5)
-
-
-def start_command_handler(update: Update, context: CallbackContext) -> None:
-    if len(rounds) > 1:
-        update.message.reply_text("Choose round:", reply_markup=build_round_list({}))
-    else:
-        update.message.reply_text("Choose judge:", reply_markup=build_judge_list({}))
+TOKEN_STR: str = "5619034469:AAEqO4pvEyMar53o3ZIlPj2aYWpDPUNehy4"
+ROUND, JUDGE, RATE1, FEEDBACK, CONFIRMATION = range(1, 6)
+rounds: List[str] = ["Round 1", "Round 2", "Round 3", "Final"]
+judges: List[str] = ["Judge 1", "Judge 2", "Judge 3"]
+max_rate: int = 5
 
 
-def help_command_handler(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(
-        "/start /help /clear"
-    )
-
-
-def clear_command_handler(update: Update, context: CallbackContext) -> None:
-    context.bot.callback_data_cache.clear_callback_data()  # type: ignore[attr-defined]
-    context.bot.callback_data_cache.clear_callback_queries()  # type: ignore[attr-defined]
-    update.effective_message.reply_text("All clear!")
-
-
-def build_round_list(current_list: Dict[int, str]) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup.from_column(
-        [InlineKeyboardButton(str(round), callback_data=(round, current_list, ROUND)) for round in rounds]
-    )
-
-
-def build_judge_list(current_list: Dict[int, str]) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup.from_column(
-        [InlineKeyboardButton(str(judge), callback_data=(judge, current_list, JUDGE)) for judge in judges]
-    )
-
-
-def build_rate_list(current_list: Dict[int, str]) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup.from_column(
-        [InlineKeyboardButton(str(i), callback_data=(i, current_list, RATE)) for i in range(1, 6)]
-    )
-
-
-def build_confirmation_list(current_list: Dict[int, str]) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup.from_column(
-        [InlineKeyboardButton(str(option), callback_data=(option, current_list, FINAL)) for option in confirmation]
-    )
-
-
-def dict_to_str(current_list: Dict[int, str]) -> str:
+# Turn user answers into human-readable format
+def answers_to_str(m_dict: Dict[int, str]) -> str:
     result: str = ""
-    if EVENT in current_list:
-        result += current_list.get(EVENT) + ", "
-    if ROUND in current_list:
-        result += current_list.get(ROUND) + ", "
-    if JUDGE in current_list:
-        result += current_list.get(JUDGE) + ", "
-    if RATE in current_list:
-        result += "Rate: " + str(current_list.get(RATE)) + ", "
-    return result[:-2]
+    if ROUND in m_dict:
+        result += f"Round: {m_dict[ROUND]}\n"
+    if JUDGE in m_dict:
+        result += f"Judge: {m_dict[JUDGE]}\n"
+    if RATE1 in m_dict:
+        result += f"Judge rate: {m_dict[RATE1]}\n"
+    if FEEDBACK in m_dict:
+        result += f"Feedback: {m_dict[FEEDBACK]}\n"
+    return result
 
 
-def list_button_handler(update: Update, context: CallbackContext) -> None:
-    """Parses the CallbackQuery and updates the message text."""
+# Here all UI text is generated (except for /start command)
+def get_text_and_reply_markup(stage: int, answers: Dict[int, str]) -> (str, InlineKeyboardMarkup):
+    text: str = ""
+    buttons: List[Tuple[str, Dict[int, str], int]] = []
+    if stage == ROUND:
+        text = "Choose round:"
+        for round in rounds:
+            buttons.append((round, answers, stage))
+    elif stage == JUDGE:
+        text = "Choose judge name:"
+        for judge in judges:
+            buttons.append((judge, answers, stage))
+    elif stage == RATE1:
+        text = "How would you rate the judge?"
+        for rate in range(1, max_rate + 1):
+            buttons.append((str(rate), answers, stage))
+    elif stage == FEEDBACK:
+        text = "Input your feedback as a text (or press No feedback button)"
+        buttons.append((str("No feedback"), answers, stage))
+    elif stage == CONFIRMATION:
+        text = "Is everything correct?"
+        for m_str in ["YES", "NO"]:
+            buttons.append((m_str, answers, stage))
+
+    reply_markup = InlineKeyboardMarkup.from_column(
+        [InlineKeyboardButton(button[0], callback_data=button) for button in buttons]
+    )
+
+    text_markup = f"Your selection so far:\n{answers_to_str(answers)}\n{text}"
+    return text_markup, reply_markup
+
+
+async def button_press_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    query.answer()
-    # Get the data from the callback_data.
-    # If you're using a type checker like MyPy, you'll have to use typing.cast
-    # to make the checker get the expected type of the callback_data
-    string, string_dict, phase = cast(Tuple[str, Dict[int, str], int], query.data)
-    # append the number to the list
-    string_dict[phase] = string
+    await query.answer()
+    # Save the answer
+    m_str, m_dict, m_stage = cast(Tuple[str, Dict[int, str], int], query.data)
+    m_dict[m_stage] = m_str
 
-    # EVENT, ROUND, JUDGE, RATE
-    if phase == EVENT:
-        query.edit_message_text(
-            text=f"Selections: {dict_to_str(string_dict)}. Choose round:",
-            reply_markup=build_round_list(string_dict),
-        )
-    elif phase == ROUND:
-        query.edit_message_text(
-            text=f"Selections: {dict_to_str(string_dict)}. Choose judge:",
-            reply_markup=build_judge_list(string_dict),
-        )
-    elif phase == JUDGE:
-        query.edit_message_text(
-            text=f"Selections: {dict_to_str(string_dict)}. Choose rate:",
-            reply_markup=build_rate_list(string_dict),
-        )
-    elif phase == RATE:
-        query.edit_message_text(
-            text=f"Selections: {dict_to_str(string_dict)}. Are you sure?",
-            reply_markup=build_confirmation_list(string_dict),
-        )
-    elif phase == FINAL:
-        if string_dict[FINAL] == "Yes, confirm":
-            query.edit_message_text(text=f"Selections: {dict_to_str(string_dict)}. Saved")
-        elif string_dict[FINAL] == "No, cancel":
-            query.edit_message_text(text=f"Answer discarded")
+    if m_stage != CONFIRMATION:
+        # Progress Stage
+        text, reply_markup = get_text_and_reply_markup(m_stage + 1, m_dict)
+        context.user_data["key"] = (m_dict, m_stage + 1)
+    else:
+        # The last answer handling
+        reply_markup = InlineKeyboardMarkup.from_column([])
+        if m_dict[CONFIRMATION] == "YES":
+            # Save answer here
+            text = f"Your selections\n{answers_to_str(m_dict)}\nAnswers are saved"
         else:
-            print("Uncaught branch")
+            text = f"Results discarded. Use /start to fill new form"
 
-    # we can delete the data stored for the query, because we've replaced the buttons
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
     context.drop_callback_data(query)
 
 
-def invalid_button_handler(update: Update, context: CallbackContext) -> None:
-    update.callback_query.answer()
-    update.effective_message.edit_text("This button is already invalid. Use /start")
+def setup_callbacks(application: Application) -> None:
+    async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        m_dict: Dict[int, str] = {}
+        text_markup, reply_markup = get_text_and_reply_markup(ROUND, m_dict)
+        await update.message.reply_text("Choose round:", reply_markup=reply_markup)
+
+    async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await update.message.reply_text("New feedback form: /start")
+
+    async def clear_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        context.bot.callback_data_cache.clear_callback_data()
+        context.bot.callback_data_cache.clear_callback_queries()
+        await update.effective_message.reply_text("callback_data_cache cleared")
+
+    async def unknown_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await update.message.reply_text("Unknown command. Use /start to start new feedback form")
+
+    async def invalid_button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await update.callback_query.answer()
+        await update.effective_message.edit_text("Invalid button. If you want to submit new feedback form use /start")
+
+    async def text_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        m_dict, m_stage = context.user_data["key"]
+        if m_stage != FEEDBACK:
+            await update.message.reply_text("Text is not accepted at the moment. "
+                                            "Finish feedback form or start new feedback form with /start")
+        else:
+            m_dict[FEEDBACK] = update.message.text
+            context.user_data["key"] = (m_dict, m_stage)
+            text, reply_markup = get_text_and_reply_markup(CONFIRMATION, m_dict)
+            await update.message.reply_text(text, reply_markup=reply_markup)
+
+    application.add_handler(CommandHandler("start", start_callback))
+    application.add_handler(CommandHandler("help", help_callback))
+    application.add_handler(CommandHandler("clear", clear_callback))
+    application.add_handler(MessageHandler(filters.COMMAND, unknown_command_callback))
+    application.add_handler(CallbackQueryHandler(invalid_button_callback, pattern=InvalidCallbackData))
+    application.add_handler(CallbackQueryHandler(button_press_callback))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_callback))
 
 
-def unknown_command_handler(update: Update, context: CallbackContext):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="This command is not supported. Use /start")
+def check_version() -> None:
+    from telegram import __version__ as TG_VER
 
+    try:
+        from telegram import __version_info__
+    except ImportError:
+        __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
 
-def text_handler(update: Update, context: CallbackContext):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Text is not supported. Use /start")
+    if __version_info__ < (20, 0, 0, "alpha", 1):
+        raise RuntimeError(
+            f"This example is not compatible with your current PTB version {TG_VER}. To view the "
+            f"{TG_VER} version of this example, "
+            f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
+        )
 
 
 def main() -> None:
-    """Run the bot."""
-    # We use persistence to demonstrate how buttons can still work after the bot was restarted
-    persistence = PicklePersistence(
-        filename="arbitrarycallbackdatabot.pickle", store_callback_data=True
+    check_version()
+
+    application = (
+        Application.builder()
+        .token(TOKEN_STR)
+        .persistence(PicklePersistence(filepath="debate_test_bot.picklepersistence"))
+        .arbitrary_callback_data(True)
+        .build()
     )
-    # Create the Updater and pass it your bot's token.
-    updater = Updater("5619034469:AAFC6eWb7uBEuQAmmXGlZsbnLRyJiH1HK1I", persistence=persistence, arbitrary_callback_data=True)
 
-    updater.dispatcher.add_handler(CommandHandler('start', start_command_handler))
-    updater.dispatcher.add_handler(CommandHandler('help', help_command_handler))
-    updater.dispatcher.add_handler(CommandHandler('clear', clear_command_handler))
-    updater.dispatcher.add_handler(CallbackQueryHandler(invalid_button_handler, pattern=InvalidCallbackData))
-    updater.dispatcher.add_handler(CallbackQueryHandler(list_button_handler))
-    updater.dispatcher.add_handler(MessageHandler(Filters.command, unknown_command_handler))
-    updater.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, text_handler))
-
-    # Start the Bot
-    updater.start_polling()
-
-    # Run the bot until the user presses Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT
-    updater.idle()
+    setup_callbacks(application)
+    application.run_polling()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
