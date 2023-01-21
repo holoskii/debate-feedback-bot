@@ -19,8 +19,8 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler, Con
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN_STR: str = "5619034469:AAEqO4pvEyMar53o3ZIlPj2aYWpDPUNehy4"
-ROUND, JUDGE, RATE1, FEEDBACK, CONFIRMATION = range(1, 6)
+TOKEN_STR: str = "5619034469:AAGg9hYwwgwhc_HQXqBmmZP9343mog3Spqw"
+ROUND, JUDGE, RATE1, RATE2, RATE3, FEEDBACK, CONFIRMATION = range(1, 8)
 choices_dict: Dict[int, List[str]] = {
     ROUND: [],
     JUDGE: ["Judge 1", "Judge 2", "Judge 3"],
@@ -40,6 +40,10 @@ def save_answers(m_dict: Dict[int, str], chat: telegram.Chat) -> None:
         result += f"{m_dict[JUDGE]},"
     if RATE1 in m_dict:
         result += f"{m_dict[RATE1]},"
+    if RATE2 in m_dict:
+        result += f"{m_dict[RATE3]},"
+    if RATE3 in m_dict:
+        result += f"{m_dict[RATE2]},"
     if FEEDBACK in m_dict:
         result += f"{m_dict[FEEDBACK]},"
     result = result[:-1]
@@ -59,7 +63,11 @@ def answers_to_str(m_dict: Dict[int, str]) -> str:
     if JUDGE in m_dict:
         result += f"Судья: {m_dict[JUDGE]}\n"
     if RATE1 in m_dict:
-        result += f"Оценка судьи: {m_dict[RATE1]}\n"
+        result += f"Общая оценка: {m_dict[RATE1]}\n"
+    if RATE2 in m_dict:
+        result += f"Полезность: {m_dict[RATE1]}\n"
+    if RATE3 in m_dict:
+        result += f"Дружелюбность: {m_dict[RATE1]}\n"
     if FEEDBACK in m_dict:
         result += f"Отзыв: {m_dict[FEEDBACK]}\n"
     return result
@@ -78,7 +86,15 @@ def get_text_and_reply_markup(stage: int, answers: Dict[int, str]) -> (str, Inli
         for judge in choices_dict[JUDGE]:
             buttons.append((judge, answers, stage))
     elif stage == RATE1:
-        text = "Как бы ты оценил(-а) судью?"
+        text = "Как бы ты оценил(-а) судью в общем?"
+        for rate in choices_dict[RATE1]:
+            buttons.append((str(rate), answers, stage))
+    elif stage == RATE2:
+        text = "Поможет ли обратная связь лучше играть в будущем?"
+        for rate in choices_dict[RATE1]:
+            buttons.append((str(rate), answers, stage))
+    elif stage == RATE3:
+        text = "Был ли судья дружелюбным?"
         for rate in choices_dict[RATE1]:
             buttons.append((str(rate), answers, stage))
     elif stage == FEEDBACK:
