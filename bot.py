@@ -55,13 +55,13 @@ def save_answers(m_dict: Dict[int, str], chat: telegram.Chat) -> None:
 def answers_to_str(m_dict: Dict[int, str]) -> str:
     result: str = ""
     if ROUND in m_dict:
-        result += f"Round: {m_dict[ROUND]}\n"
+        result += f"Раунд: {m_dict[ROUND]}\n"
     if JUDGE in m_dict:
-        result += f"Judge: {m_dict[JUDGE]}\n"
+        result += f"Судья: {m_dict[JUDGE]}\n"
     if RATE1 in m_dict:
-        result += f"Judge rate: {m_dict[RATE1]}\n"
+        result += f"Оценка судьи: {m_dict[RATE1]}\n"
     if FEEDBACK in m_dict:
-        result += f"Feedback: {m_dict[FEEDBACK]}\n"
+        result += f"Отзыв: {m_dict[FEEDBACK]}\n"
     return result
 
 
@@ -70,22 +70,22 @@ def get_text_and_reply_markup(stage: int, answers: Dict[int, str]) -> (str, Inli
     text: str = ""
     buttons: List[Tuple[str, Dict[int, str], int]] = []
     if stage == ROUND:
-        text = "Choose round:"
+        text = "Выбери раунд:"
         for round_name in choices_dict[ROUND]:
             buttons.append((round_name, answers, stage))
     elif stage == JUDGE:
-        text = "Choose judge name:"
+        text = "Выбери имя судьи:"
         for judge in choices_dict[JUDGE]:
             buttons.append((judge, answers, stage))
     elif stage == RATE1:
-        text = "How would you rate the judge?"
+        text = "Как бы ты оценил(-а) судью?"
         for rate in choices_dict[RATE1]:
             buttons.append((str(rate), answers, stage))
     elif stage == FEEDBACK:
-        text = "Input your feedback as a text (or press No feedback button)"
-        buttons.append((str("No feedback"), answers, stage))
+        text = "Напиши отзыв сообщением, если имеется (Или нажми \"Нет отзыва\")"
+        buttons.append((str("Нет отзыва"), answers, stage))
     elif stage == CONFIRMATION:
-        text = "Is everything correct?"
+        text = "Всё правильно?"
         for m_str in ["YES", "NO"]:
             buttons.append((m_str, answers, stage))
 
@@ -93,7 +93,7 @@ def get_text_and_reply_markup(stage: int, answers: Dict[int, str]) -> (str, Inli
         [InlineKeyboardButton(button[0], callback_data=button) for button in buttons]
     )
 
-    text_markup = f"Your selection so far:\n{answers_to_str(answers)}\n{text}"
+    text_markup = f"Твой выбор:\n{answers_to_str(answers)}\n{text}"
     return text_markup, reply_markup
 
 
@@ -113,10 +113,10 @@ async def button_press_callback(update: Update, context: ContextTypes.DEFAULT_TY
         reply_markup = InlineKeyboardMarkup.from_column([])
         if m_dict[CONFIRMATION] == "YES":
             # Save answer here
-            text = f"Your selections\n{answers_to_str(m_dict)}\nAnswers are saved"
+            text = f"Твой отзыв\n{answers_to_str(m_dict)}\nОтвет сохранён"
             save_answers(m_dict, update.effective_chat)
         else:
-            text = f"Results discarded. Use /start to fill new form"
+            text = f"Ответ не был сохранён. Используй /start чтобы начать заново"
 
     await query.edit_message_text(text=text, reply_markup=reply_markup)
     context.drop_callback_data(query)
@@ -127,14 +127,14 @@ def setup_callbacks(application: Application) -> None:
         m_dict: Dict[int, str] = {}
         if len(choices_dict[ROUND]) != 0:
             text_markup, reply_markup = get_text_and_reply_markup(ROUND, m_dict)
-            text_markup = "Choose round:"
+            text_markup = "Выбери раунд:"
         else:
             text_markup, reply_markup = get_text_and_reply_markup(JUDGE, m_dict)
-            text_markup = "Choose judge:"
+            text_markup = "Выбери судью:"
         await update.message.reply_text(text_markup, reply_markup=reply_markup)
 
     async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await update.message.reply_text("New feedback form: /start")
+        await update.message.reply_text("Начать новую форму: /start")
 
     async def clear_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context.bot.callback_data_cache.clear_callback_data()
@@ -142,17 +142,17 @@ def setup_callbacks(application: Application) -> None:
         await update.effective_message.reply_text("callback_data_cache cleared")
 
     async def unknown_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await update.message.reply_text("Unknown command. Use /start to start new feedback form")
+        await update.message.reply_text("Неизвестная команда, используй /start чтобы заполнить новую форму")
 
     async def invalid_button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.callback_query.answer()
-        await update.effective_message.edit_text("Invalid button. If you want to submit new feedback form use /start")
+        await update.effective_message.edit_text("Нерабочая кнопка. Чтобы начать новую форму используй /start")
 
     async def text_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         m_dict, m_stage = context.user_data["key"]
         if m_stage != FEEDBACK:
-            await update.message.reply_text("Text is not accepted at the moment. "
-                                            "Finish feedback form or start new feedback form with /start")
+            await update.message.reply_text("Сейчас текст не принимается. "
+                                            "Продолжай заолнять форму, или начни новую с помощью /start")
         else:
             m_dict[FEEDBACK] = update.message.text
             context.user_data["key"] = (m_dict, m_stage)
