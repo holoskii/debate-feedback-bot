@@ -6,9 +6,13 @@ pip install python-telegram-bot --upgrade
 pip install python-telegram-bot[callback-data]
 """
 
+from datetime import datetime
+
 import logging
 from typing import List, Tuple, Dict, cast
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+
+import telegram
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, Chat
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler, ContextTypes, InvalidCallbackData, PicklePersistence, MessageHandler, filters)
 
 # Enable logging
@@ -17,9 +21,34 @@ logger = logging.getLogger(__name__)
 
 TOKEN_STR: str = "5619034469:AAEqO4pvEyMar53o3ZIlPj2aYWpDPUNehy4"
 ROUND, JUDGE, RATE1, FEEDBACK, CONFIRMATION = range(1, 6)
-rounds: List[str] = ["Round 1", "Round 2", "Round 3", "Final"]
-judges: List[str] = ["Judge 1", "Judge 2", "Judge 3"]
-max_rate: int = 5
+choices_dict: Dict[int, List[str]] = {
+    ROUND: [],
+    JUDGE: ["Judge 1", "Judge 2", "Judge 3"],
+    RATE1: ["1", "2", "3", "4", "5"]
+}
+
+
+# save the answer
+def save_answers(m_dict: Dict[int, str], chat: telegram.Chat) -> None:
+    current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    result: str = f"{current_datetime},{chat.id},{chat.username},{chat.full_name},"
+    if ROUND in m_dict:
+        result += f"{m_dict[ROUND]},"
+    else:
+        result += ","
+    if JUDGE in m_dict:
+        result += f"{m_dict[JUDGE]},"
+    if RATE1 in m_dict:
+        result += f"{m_dict[RATE1]},"
+    if FEEDBACK in m_dict:
+        result += f"{m_dict[FEEDBACK]},"
+    result = result[:-1]
+    result += "\n"
+
+    print(result, end='')
+    # Open the file in append & read mode ('a+')
+    myfile = open("out.csv", "a")
+    myfile.write(result)
 
 
 # Turn user answers into human-readable format
@@ -42,15 +71,15 @@ def get_text_and_reply_markup(stage: int, answers: Dict[int, str]) -> (str, Inli
     buttons: List[Tuple[str, Dict[int, str], int]] = []
     if stage == ROUND:
         text = "Choose round:"
-        for round in rounds:
-            buttons.append((round, answers, stage))
+        for round_name in choices_dict[ROUND]:
+            buttons.append((round_name, answers, stage))
     elif stage == JUDGE:
         text = "Choose judge name:"
-        for judge in judges:
+        for judge in choices_dict[JUDGE]:
             buttons.append((judge, answers, stage))
     elif stage == RATE1:
         text = "How would you rate the judge?"
-        for rate in range(1, max_rate + 1):
+        for rate in choices_dict[RATE1]:
             buttons.append((str(rate), answers, stage))
     elif stage == FEEDBACK:
         text = "Input your feedback as a text (or press No feedback button)"
@@ -85,6 +114,7 @@ async def button_press_callback(update: Update, context: ContextTypes.DEFAULT_TY
         if m_dict[CONFIRMATION] == "YES":
             # Save answer here
             text = f"Your selections\n{answers_to_str(m_dict)}\nAnswers are saved"
+            save_answers(m_dict, update.effective_chat)
         else:
             text = f"Results discarded. Use /start to fill new form"
 
@@ -95,8 +125,13 @@ async def button_press_callback(update: Update, context: ContextTypes.DEFAULT_TY
 def setup_callbacks(application: Application) -> None:
     async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         m_dict: Dict[int, str] = {}
-        text_markup, reply_markup = get_text_and_reply_markup(ROUND, m_dict)
-        await update.message.reply_text("Choose round:", reply_markup=reply_markup)
+        if len(choices_dict[ROUND]) != 0:
+            text_markup, reply_markup = get_text_and_reply_markup(ROUND, m_dict)
+            text_markup = "Choose round:"
+        else:
+            text_markup, reply_markup = get_text_and_reply_markup(JUDGE, m_dict)
+            text_markup = "Choose judge:"
+        await update.message.reply_text(text_markup, reply_markup=reply_markup)
 
     async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("New feedback form: /start")
