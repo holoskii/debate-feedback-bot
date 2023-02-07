@@ -19,12 +19,45 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler, Con
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN_STR: str = "5619034469:AAGg9hYwwgwhc_HQXqBmmZP9343mog3Spqw"
-ROUND, JUDGE, RATE1, RATE2, RATE3, FEEDBACK, CONFIRMATION = range(1, 8)
+TOKEN_STR: str = "TOKEN"
+
+ROUND, JUDGE, TEAM, PLACE, RATE1, RATE2, RATE3, RATE4, FEEDBACK, CONFIRMATION = range(1, 11)
 choices_dict: Dict[int, List[str]] = {
-    ROUND: [],
-    JUDGE: ["Василий", "Евгений", "Григорий"],
-    RATE1: ["1", "2", "3", "4", "5"]
+    ROUND: ["1", "2", "3", "Полуфинал", "Финал"],
+    JUDGE: ["Настя", "Владислав", "Илья"],
+    TEAM: ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5"],
+    PLACE: ["1 место", "2 место", "3 место", "4 место"],
+    RATE1: ["1", "2", "3", "4", "5"],
+    RATE2: ["1", "2", "3", "4", "5"],
+    RATE3: ["1", "2", "3", "4"],
+    RATE4: ["Соблюдено", "Не соблюдено"],
+    FEEDBACK: ["Нет отзыва"],
+    CONFIRMATION: ["ДА", "НЕТ"],
+}
+
+question_dict: Dict[int, str] = {
+    ROUND: "Выбери раунд:",
+    JUDGE: "Выбери судью:",
+    TEAM:  "Выбери свою команду:",
+    PLACE: "Какое место занял в раунде:",
+    RATE1: "Анализ речей судьей\n1 - Очень непонятный, странный анализ\n5 - Все понятно, вряд ли можно сделать лучше",
+    RATE2: "Насколько качественно проведено сравнение комманд?\n1 - Очень непонятные, странные критерии\n5 - Все понятно, сомнений в местах нет",
+    RATE3: "Насколько фидбек полезен для дальнейшего развития\n1 - Не было предложений по улучшению\n4 - Ясно как выиграть раунд или повысить качество речей",
+    RATE4: "Оцени ведение раунда, соблюдался ли регламент, был ли соблюдён порядок",
+    FEEDBACK: "Комментарий для главного судьи, не обязательно (Или нажми \"Нет отзыва\")",
+    CONFIRMATION: "Всё правильно?",
+}
+
+summary_dict: Dict[int, str] = {
+    ROUND: "Раунд:",
+    JUDGE: "Судья:",
+    TEAM:  "Команда:",
+    PLACE: "Место:",
+    RATE1: "Анализ речей судьей:",
+    RATE2: "Сравнение команд:",
+    RATE3: "Полезность:",
+    RATE4: "Ведение раунда:",
+    FEEDBACK: "Комментарии:",
 }
 
 
@@ -32,24 +65,13 @@ choices_dict: Dict[int, List[str]] = {
 def save_answers(m_dict: Dict[int, str], chat: telegram.Chat) -> None:
     current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     result: str = f"{current_datetime},{chat.id},{chat.username},{chat.full_name},"
-    if ROUND in m_dict:
-        result += f"{m_dict[ROUND]},"
-    else:
-        result += ","
-    if JUDGE in m_dict:
-        result += f"{m_dict[JUDGE]},"
-    if RATE1 in m_dict:
-        result += f"{m_dict[RATE1]},"
-    if RATE2 in m_dict:
-        result += f"{m_dict[RATE3]},"
-    if RATE3 in m_dict:
-        result += f"{m_dict[RATE2]},"
-    if FEEDBACK in m_dict:
-        result += f"{m_dict[FEEDBACK]},"
+
+    for answer in m_dict:
+        result += f"{answer}:{m_dict[answer]},"
     result = result[:-1]
     result += "\n"
 
-    print(result, end='')
+    print("Completed feedback: " + result, end='')
     # Open the file in append & read mode ('a+')
     myfile = open("out.csv", "a")
     myfile.write(result)
@@ -58,18 +80,16 @@ def save_answers(m_dict: Dict[int, str], chat: telegram.Chat) -> None:
 # Turn user answers into human-readable format
 def answers_to_str(m_dict: Dict[int, str]) -> str:
     result: str = ""
-    if ROUND in m_dict:
-        result += f"Раунд: {m_dict[ROUND]}\n"
-    if JUDGE in m_dict:
-        result += f"Судья: {m_dict[JUDGE]}\n"
-    if RATE1 in m_dict:
-        result += f"Общая оценка: {m_dict[RATE1]}\n"
-    if RATE2 in m_dict:
-        result += f"Полезность: {m_dict[RATE1]}\n"
-    if RATE3 in m_dict:
-        result += f"Дружелюбность: {m_dict[RATE1]}\n"
-    if FEEDBACK in m_dict:
-        result += f"Отзыв: {m_dict[FEEDBACK]}\n"
+    for answer in m_dict:
+        if answer == CONFIRMATION:
+            continue
+        if answer == FEEDBACK:
+            if m_dict[FEEDBACK] == "Нет отзыва":
+                continue
+        elif answer in summary_dict:
+            result += f"{summary_dict[answer]} {m_dict[answer]}\n"
+        else:
+            print("Not in summary_dict: " + str(answer))
     return result
 
 
@@ -77,33 +97,12 @@ def answers_to_str(m_dict: Dict[int, str]) -> str:
 def get_text_and_reply_markup(stage: int, answers: Dict[int, str]) -> (str, InlineKeyboardMarkup):
     text: str = ""
     buttons: List[Tuple[str, Dict[int, str], int]] = []
-    if stage == ROUND:
-        text = "Выбери раунд:"
-        for round_name in choices_dict[ROUND]:
-            buttons.append((round_name, answers, stage))
-    elif stage == JUDGE:
-        text = "Выбери имя судьи:"
-        for judge in choices_dict[JUDGE]:
-            buttons.append((judge, answers, stage))
-    elif stage == RATE1:
-        text = "Как бы ты оценил(-а) судью в общем?"
-        for rate in choices_dict[RATE1]:
-            buttons.append((str(rate), answers, stage))
-    elif stage == RATE2:
-        text = "Поможет ли обратная связь лучше играть в будущем?"
-        for rate in choices_dict[RATE1]:
-            buttons.append((str(rate), answers, stage))
-    elif stage == RATE3:
-        text = "Был ли судья дружелюбным?"
-        for rate in choices_dict[RATE1]:
-            buttons.append((str(rate), answers, stage))
-    elif stage == FEEDBACK:
-        text = "Напиши отзыв сообщением, если имеется (Или нажми \"Нет отзыва\")"
-        buttons.append((str("Нет отзыва"), answers, stage))
-    elif stage == CONFIRMATION:
-        text = "Всё правильно?"
-        for m_str in ["ДА", "НЕТ"]:
-            buttons.append((m_str, answers, stage))
+    if (stage in choices_dict) and (stage in question_dict):
+        text = question_dict[stage]
+        for options in choices_dict[stage]:
+            buttons.append((options, answers, stage))
+    else:
+        print("Unhandled branch, stage=" + str(stage))
 
     reply_markup = InlineKeyboardMarkup.from_column(
         [InlineKeyboardButton(button[0], callback_data=button) for button in buttons]
@@ -140,6 +139,10 @@ async def button_press_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 def setup_callbacks(application: Application) -> None:
     async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        chat = update.effective_chat
+        result: str = f"{current_datetime},{chat.id},{chat.username},{chat.full_name}"
+        print(f"New start command: {result}")
         m_dict: Dict[int, str] = {}
         if len(choices_dict[ROUND]) != 0:
             text_markup, reply_markup = get_text_and_reply_markup(ROUND, m_dict)
