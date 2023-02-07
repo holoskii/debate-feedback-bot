@@ -23,7 +23,7 @@ TOKEN_STR: str = "5619034469:AAGg9hYwwgwhc_HQXqBmmZP9343mog3Spqw"
 ROUND, JUDGE, RATE1, RATE2, RATE3, FEEDBACK, CONFIRMATION = range(1, 8)
 choices_dict: Dict[int, List[str]] = {
     ROUND: [],
-    JUDGE: ["Judge 1", "Judge 2", "Judge 3"],
+    JUDGE: ["Василий", "Евгений", "Григорий"],
     RATE1: ["1", "2", "3", "4", "5"]
 }
 
@@ -102,7 +102,7 @@ def get_text_and_reply_markup(stage: int, answers: Dict[int, str]) -> (str, Inli
         buttons.append((str("Нет отзыва"), answers, stage))
     elif stage == CONFIRMATION:
         text = "Всё правильно?"
-        for m_str in ["YES", "NO"]:
+        for m_str in ["ДА", "НЕТ"]:
             buttons.append((m_str, answers, stage))
 
     reply_markup = InlineKeyboardMarkup.from_column(
@@ -127,7 +127,7 @@ async def button_press_callback(update: Update, context: ContextTypes.DEFAULT_TY
     else:
         # The last answer handling
         reply_markup = InlineKeyboardMarkup.from_column([])
-        if m_dict[CONFIRMATION] == "YES":
+        if m_dict[CONFIRMATION] == "ДА":
             # Save answer here
             text = f"Твой отзыв\n{answers_to_str(m_dict)}\nОтвет сохранён"
             save_answers(m_dict, update.effective_chat)
