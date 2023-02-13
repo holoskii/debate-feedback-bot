@@ -5,7 +5,7 @@ Install:
 pip install python-telegram-bot --upgrade
 pip install python-telegram-bot[callback-data]
 """
-
+import asyncio
 from datetime import datetime
 
 import logging
@@ -13,13 +13,22 @@ from typing import List, Tuple, Dict, cast
 
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, Chat
-from telegram.ext import (Application, CallbackQueryHandler, CommandHandler, ContextTypes, InvalidCallbackData, PicklePersistence, MessageHandler, filters)
+from telegram.ext import (Application, CallbackQueryHandler, CommandHandler, ContextTypes, InvalidCallbackData,
+                          PicklePersistence, MessageHandler, filters, ApplicationBuilder)
 
 # Enable logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TOKEN_STR: str = "TOKEN"
+
+# TODO: after each start command write chat_id to file, if it is not present there
+# when sending message to all users, read ids from the file
+chat_ids: List[int] = [388441603]
+
+# If this string is empty no message will be sent and bot will start in normal mode
+# Otherwise, the message will be sent to all users and BOT WILL NOT BE STARTED
+message_to_all_users: str = ''
 
 ROUND, JUDGE, TEAM, PLACE, RATE1, RATE2, RATE3, RATE4, FEEDBACK, CONFIRMATION = range(1, 11)
 choices_dict: Dict[int, List[str]] = {
@@ -203,8 +212,26 @@ def check_version() -> None:
         )
 
 
+def try_send_message_to_all_users() -> bool:
+    if len(message_to_all_users) == 0:
+        return False
+
+    async def send_and_wait(bot_token: str, chat_id: int, text: str):
+        application = ApplicationBuilder().token(bot_token).build()
+        await application.bot.sendMessage(chat_id=chat_id, text=text)
+
+    print('Sending message to all users')
+    for chat_id in chat_ids:
+        print(f'Sending text="{message_to_all_users}" to chat_id={chat_id}')
+        asyncio.run(send_and_wait(TOKEN_STR, chat_id, message_to_all_users))
+    return True
+
+
 def main() -> None:
     check_version()
+
+    if try_send_message_to_all_users():
+        return
 
     application = (
         Application.builder()
@@ -213,7 +240,6 @@ def main() -> None:
         .arbitrary_callback_data(True)
         .build()
     )
-
     setup_callbacks(application)
     application.run_polling()
 
