@@ -20,15 +20,17 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler, Con
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN_STR: str = "TOKEN"
-
-# TODO: after each start command write chat_id to file, if it is not present there
-# when sending message to all users, read ids from the file
-chat_ids: List[int] = [388441603]
+###############################################################
+# SETTINGS
 
 # If this string is empty no message will be sent and bot will start in normal mode
 # Otherwise, the message will be sent to all users and BOT WILL NOT BE STARTED
 message_to_all_users: str = ''
+
+output_filename = 'answers_out.csv'
+chat_ids_filename = 'chat_ids.txt'
+
+TOKEN_STR: str = "5950246161:AAFtpWQh45Ggu413D7KThhoZiIF-hjTHVMM"
 
 ROUND, JUDGE, TEAM, PLACE, RATE1, RATE2, RATE3, RATE4, FEEDBACK, CONFIRMATION = range(1, 11)
 choices_dict: Dict[int, List[str]] = {
@@ -53,7 +55,7 @@ question_dict: Dict[int, str] = {
     RATE2: "Насколько качественно проведено сравнение комманд?\n1 - Очень непонятные, странные критерии\n5 - Все понятно, сомнений в местах нет",
     RATE3: "Насколько фидбек полезен для дальнейшего развития\n1 - Не было предложений по улучшению\n4 - Ясно как выиграть раунд или повысить качество речей",
     RATE4: "Оцени ведение раунда, соблюдался ли регламент, был ли соблюдён порядок",
-    FEEDBACK: "Комментарий для главного судьи, не обязательно (Или нажми \"Нет отзыва\")",
+    FEEDBACK: "Комментарий для главного судьи, не обязательно (Отправь текстовое сообщение с отзывом, или нажми \"Нет отзыва\")",
     CONFIRMATION: "Всё правильно?",
 }
 
@@ -69,6 +71,9 @@ summary_dict: Dict[int, str] = {
     FEEDBACK: "Комментарии:",
 }
 
+# END SETTINGS
+###############################################################
+
 
 # save the answer
 def save_answers(m_dict: Dict[int, str], chat: telegram.Chat) -> None:
@@ -76,13 +81,17 @@ def save_answers(m_dict: Dict[int, str], chat: telegram.Chat) -> None:
     result: str = f"{current_datetime},{chat.id},{chat.username},{chat.full_name},"
 
     for answer in m_dict:
-        result += f"{answer}:{m_dict[answer]},"
+        value = m_dict[answer]
+        if answer == FEEDBACK:
+            if m_dict[FEEDBACK] == "Нет отзыва":
+                value = ''
+        result += f"{value},"
     result = result[:-1]
     result += "\n"
 
     print("Completed feedback: " + result, end='')
     # Open the file in append & read mode ('a+')
-    myfile = open("out.csv", "a")
+    myfile = open(output_filename, "a")
     myfile.write(result)
 
 
@@ -95,7 +104,8 @@ def answers_to_str(m_dict: Dict[int, str]) -> str:
         if answer == FEEDBACK:
             if m_dict[FEEDBACK] == "Нет отзыва":
                 continue
-        elif answer in summary_dict:
+
+        if answer in summary_dict:
             result += f"{summary_dict[answer]} {m_dict[answer]}\n"
         else:
             print("Not in summary_dict: " + str(answer))
@@ -146,6 +156,22 @@ async def button_press_callback(update: Update, context: ContextTypes.DEFAULT_TY
     context.drop_callback_data(query)
 
 
+def try_add_chat_id_to_file(chat_id_int: int) -> None:
+    chat_id: str = str(chat_id_int)
+    print('Trying to add chat id to file = ' + str(chat_id) + ' ...')
+    with open('chat_ids.txt') as file:
+        for line in file:
+            if line == (chat_id + '\n'):
+                print('... already present in file')
+                return
+        file.close()
+    print('... added')
+
+    file_object = open('chat_ids.txt', 'a')
+    file_object.write(chat_id + '\n')
+    file_object.close()
+
+
 def setup_callbacks(application: Application) -> None:
     async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -153,6 +179,7 @@ def setup_callbacks(application: Application) -> None:
         result: str = f"{current_datetime},{chat.id},{chat.username},{chat.full_name}"
         print(f"New start command: {result}")
         m_dict: Dict[int, str] = {}
+        try_add_chat_id_to_file(chat.id)
         if len(choices_dict[ROUND]) != 0:
             text_markup, reply_markup = get_text_and_reply_markup(ROUND, m_dict)
             text_markup = "Выбери раунд:"
@@ -221,9 +248,12 @@ def try_send_message_to_all_users() -> bool:
         await application.bot.sendMessage(chat_id=chat_id, text=text)
 
     print('Sending message to all users')
-    for chat_id in chat_ids:
-        print(f'Sending text="{message_to_all_users}" to chat_id={chat_id}')
-        asyncio.run(send_and_wait(TOKEN_STR, chat_id, message_to_all_users))
+    with open('chat_ids.txt') as file:
+        for line in file:
+            chat_id = int(line[:-1])
+            print(f'Sending text="{message_to_all_users}" to chat_id={chat_id}')
+            asyncio.run(send_and_wait(TOKEN_STR, chat_id, message_to_all_users))
+        file.close()
     return True
 
 
