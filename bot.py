@@ -30,7 +30,7 @@ message_to_all_users: str = ''
 output_filename = 'answers_out.csv'
 chat_ids_filename = 'chat_ids.txt'
 
-TOKEN_STR: str = "5950246161:AAFtpWQh45Ggu413D7KThhoZiIF-hjTHVMM"
+TOKEN_STR: str = "TOKEN"
 
 ROUND, JUDGE, TEAM, PLACE, RATE1, RATE2, RATE3, RATE4, FEEDBACK, CONFIRMATION = range(1, 11)
 choices_dict: Dict[int, List[str]] = {
@@ -246,14 +246,25 @@ def try_send_message_to_all_users() -> bool:
     async def send_and_wait(bot_token: str, chat_id: int, text: str):
         application = ApplicationBuilder().token(bot_token).build()
         await application.bot.sendMessage(chat_id=chat_id, text=text)
+    num_lines: int = 0
+    with open('chat_ids.txt') as file:
+        for line in file:
+            num_lines += 1
+        file.close()
 
-    print('Sending message to all users')
+    if num_lines == 0:
+        print('File with ids has 0 lines, no recipients for the message')
+        return False
+
+    text = input(f'Going to send message {message_to_all_users} to {num_lines} users. Press Enter to confirm: ')
+    print(f'Sending...')
+
     with open('chat_ids.txt') as file:
         for line in file:
             chat_id = int(line[:-1])
-            print(f'Sending text="{message_to_all_users}" to chat_id={chat_id}')
             asyncio.run(send_and_wait(TOKEN_STR, chat_id, message_to_all_users))
         file.close()
+    print(f'Done')
     return True
 
 
