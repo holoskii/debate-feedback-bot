@@ -33,16 +33,20 @@ chat_ids_filename = 'chat_ids.txt'
 TOKEN_STR: str = "TOKEN"
 
 ROUND, JUDGE, TEAM, PLACE, RATE1, RATE2, RATE3, RATE4, FEEDBACK, CONFIRMATION = range(1, 11)
+no_feedback_str = "Нет отзыва"
+help_string = "Я бот для заполнения обратной формы на судей. Начать новую форму /start. " \
+              "Если совершил ошибку можно начать новую форму повторно используя /start"
 choices_dict: Dict[int, List[str]] = {
-    ROUND: ["1", "2", "3", "Полуфинал", "Финал"],
-    JUDGE: ["Настя", "Владислав", "Илья"],
-    TEAM: ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5"],
-    PLACE: ["1 место", "2 место", "3 место", "4 место"],
+    ROUND: ["1", "2", "3", "4 Импрораунд"],
+    # 2 day: "5 Раунд", "Чвертьфинал", "Полуфинал", "Финал"
+    JUDGE: ["Aleksandra Jegorova", "Anastassia Serbina", "Anna Veiert", "David Rozenbllit", "Ilja Freiberg", "Ivan Pokrovski", "Kateryna Svyrhun", "Kirill Zaitsev", "Makar Ivashko", "Maksim Tjulenev", "Maxim Borodin", "Mykhailo Datsenko", "Vladimir Šulžik", "Vladislav Konstantinov"],
+    TEAM: ["Bratja Karamazovi", "Canon mg 2552s", "Capital of freezers", "Cringe", "DEBчата", "Kvaliteetne ja Kange", "Lidij", "Memories and Dreams", "Metilmetkatinon", "SKK", "Team Σ", "η - \"эта\"", "Ёнмоко не вылавировали", "Влад дед инсайд", "Гиппопотомомонстросесквиппедалиофобия", "Мы тут!", "Удар колбасой", "Униженные и оскорбленные"],
+    PLACE: ["Победили", "Проиграли"],
     RATE1: ["1", "2", "3", "4", "5"],
     RATE2: ["1", "2", "3", "4", "5"],
     RATE3: ["1", "2", "3", "4"],
     RATE4: ["Соблюдено", "Не соблюдено"],
-    FEEDBACK: ["Нет отзыва"],
+    FEEDBACK: [no_feedback_str],
     CONFIRMATION: ["ДА", "НЕТ"],
 }
 
@@ -50,12 +54,23 @@ question_dict: Dict[int, str] = {
     ROUND: "Выбери раунд:",
     JUDGE: "Выбери судью:",
     TEAM:  "Выбери свою команду:",
-    PLACE: "Какое место занял в раунде:",
-    RATE1: "Анализ речей судьей\n1 - Очень непонятный, странный анализ\n5 - Все понятно, вряд ли можно сделать лучше",
-    RATE2: "Насколько качественно проведено сравнение комманд?\n1 - Очень непонятные, странные критерии\n5 - Все понятно, сомнений в местах нет",
-    RATE3: "Насколько фидбек полезен для дальнейшего развития\n1 - Не было предложений по улучшению\n4 - Ясно как выиграть раунд или повысить качество речей",
-    RATE4: "Оцени ведение раунда, соблюдался ли регламент, был ли соблюдён порядок",
-    FEEDBACK: "Комментарий для главного судьи, не обязательно (Отправь текстовое сообщение с отзывом, или нажми \"Нет отзыва\")",
+    PLACE: "В раунде вы?",
+    RATE1: "1. Оцените анализ речей ваших судей. Здесь мы НЕ спрашиваем согласны ли вы с местами."
+           "\nКритерии: насколько анализ был понятным, логичным, детальным. Указал ли судья на основные пробелы рассказал ли, как их заполнить."
+           "\n1 - очень непонятно / необычайно странный анализ"
+           "\n5 - Всё понятно. Вряд ли можно проанализировать наши речи много лучше",
+    RATE2: "2. Насколько качественно проведено сравнение команд?"
+           "\nКритерии: "
+           "\n1. Наличие объяснения мест."
+           "\n2. Приведенные причины расстановки мест логичны, внутренне непротиворечивы, учитывают весь материал, который был на речах команд."
+           "\n1 - очень непонятно / крайне необычные критерии, которые мы не смогли понять"
+           "\n5 - Всё понятно, чётко, детально. Сомнений в верности полученных мест или хотя бы в их допустимости нет",
+    RATE3: "3. Был ли фидбэк полезен для вашего дальнейшего развития?"
+           "\nКритерии: - предложены новые аргументы или варианты улучшения аргументов. – советы по отбивке, структуре, тайм-менеджменту, расстановке акцентов."
+           "\n1 - Никаких предложений по улучшению не последовало"
+           "\n4 - Ясно, как выиграть этот раунд, если этого не произошло, или качественно повысить уровень речей, если раунд выигран",
+    RATE4: "Оцените введение раунда (соблюдение регламента, поддержание порядка)",
+    FEEDBACK: "Комментарий для главного судьи, необязательно (Отправь текстовое сообщение с отзывом, или нажми \"Нет отзыва\")",
     CONFIRMATION: "Всё правильно?",
 }
 
@@ -63,10 +78,10 @@ summary_dict: Dict[int, str] = {
     ROUND: "Раунд:",
     JUDGE: "Судья:",
     TEAM:  "Команда:",
-    PLACE: "Место:",
-    RATE1: "Анализ речей судьей:",
-    RATE2: "Сравнение команд:",
-    RATE3: "Полезность:",
+    PLACE: "Результат:",
+    RATE1: "1. Анализ речей судьей:",
+    RATE2: "2. Сравнение команд:",
+    RATE3: "3. Полезность:",
     RATE4: "Ведение раунда:",
     FEEDBACK: "Комментарии:",
 }
@@ -83,7 +98,7 @@ def save_answers(m_dict: Dict[int, str], chat: telegram.Chat) -> None:
     for answer in m_dict:
         value = m_dict[answer]
         if answer == FEEDBACK:
-            if m_dict[FEEDBACK] == "Нет отзыва":
+            if m_dict[FEEDBACK] == no_feedback_str:
                 value = ''
         result += f"{value},"
     result = result[:-1]
@@ -102,7 +117,7 @@ def answers_to_str(m_dict: Dict[int, str]) -> str:
         if answer == CONFIRMATION:
             continue
         if answer == FEEDBACK:
-            if m_dict[FEEDBACK] == "Нет отзыва":
+            if m_dict[FEEDBACK] == no_feedback_str:
                 continue
 
         if answer in summary_dict:
@@ -182,22 +197,22 @@ def setup_callbacks(application: Application) -> None:
         try_add_chat_id_to_file(chat.id)
         if len(choices_dict[ROUND]) != 0:
             text_markup, reply_markup = get_text_and_reply_markup(ROUND, m_dict)
-            text_markup = "Выбери раунд:"
+            text_markup = question_dict[ROUND]
         else:
             text_markup, reply_markup = get_text_and_reply_markup(JUDGE, m_dict)
-            text_markup = "Выбери судью:"
+            text_markup = question_dict[JUDGE]
         await update.message.reply_text(text_markup, reply_markup=reply_markup)
 
     async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await update.message.reply_text("Начать новую форму: /start")
+        await update.message.reply_text(help_string)
 
-    async def clear_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        context.bot.callback_data_cache.clear_callback_data()
-        context.bot.callback_data_cache.clear_callback_queries()
-        await update.effective_message.reply_text("callback_data_cache cleared")
+    # async def clear_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    #     context.bot.callback_data_cache.clear_callback_data()
+    #     context.bot.callback_data_cache.clear_callback_queries()
+    #     await update.effective_message.reply_text("callback_data_cache cleared")
 
     async def unknown_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await update.message.reply_text("Неизвестная команда, используй /start чтобы заполнить новую форму")
+        await update.message.reply_text("Неизвестная команда, используй /help")
 
     async def invalid_button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.callback_query.answer()
@@ -206,8 +221,11 @@ def setup_callbacks(application: Application) -> None:
     async def text_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         m_dict, m_stage = context.user_data["key"]
         if m_stage != FEEDBACK:
-            await update.message.reply_text("Сейчас текст не принимается. "
-                                            "Продолжай заолнять форму, или начни новую с помощью /start")
+            current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            chat = update.effective_chat
+            result: str = f"Text is unsupported at the moment: {current_datetime},{chat.id},{chat.username},{chat.full_name},{update.message.text}"
+            print(result)
+            await update.message.reply_text("Сейчас текст не принимается, используй /help")
         else:
             m_dict[FEEDBACK] = update.message.text
             context.user_data["key"] = (m_dict, m_stage)
@@ -216,7 +234,7 @@ def setup_callbacks(application: Application) -> None:
 
     application.add_handler(CommandHandler("start", start_callback))
     application.add_handler(CommandHandler("help", help_callback))
-    application.add_handler(CommandHandler("clear", clear_callback))
+    # application.add_handler(CommandHandler("clear", clear_callback))
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command_callback))
     application.add_handler(CallbackQueryHandler(invalid_button_callback, pattern=InvalidCallbackData))
     application.add_handler(CallbackQueryHandler(button_press_callback))
